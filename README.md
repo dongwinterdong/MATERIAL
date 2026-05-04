@@ -13,11 +13,11 @@
 .
 ├── 2023.03.27 70mm 1500 0.5 1.ravi.part01..06   # LFS：原 .ravi 的 6 个分片
 ├── SCOUT_papers_final_expanded.zip              # LFS：论文压缩包
-├── merge-ravi.ps1                               # 合并 .ravi 分片
+├── pull-and-merge.sh / Pull-And-Merge.ps1       # 一键 clone + lfs pull + 合并（Linux/macOS 与 Windows）
+├── merge-ravi.sh    / merge-ravi.ps1            # 单独合并 .ravi 分片
 ├── split-ravi.ps1                               # 重新切分原 .ravi（仅维护者用）
-├── Pull-And-Merge.ps1                           # 一键 clone + lfs pull + 合并
-├── Push-Repo.ps1                                # 一键带 token 推送（仅维护者用）
-├── .gitattributes                               # LFS 跟踪规则
+├── Push-Repo.ps1                                # 一键带 token 推送（仅维护者用，Windows）
+├── .gitattributes                               # LFS 跟踪规则 + 行尾规范
 └── .gitignore                                   # 忽略合并后的原 .ravi
 ```
 
@@ -29,12 +29,43 @@
 
 - [Git](https://git-scm.com/)
 - [Git LFS](https://git-lfs.com/)（安装后执行一次 `git lfs install`）
-- Windows PowerShell 5+（脚本路径）；或者 Linux/macOS 用手动方式
+- Linux / macOS 用 bash 脚本；Windows 用 PowerShell 5+ 脚本
+- 可选：`pv`（Linux 合并阶段的进度条）
 - 磁盘空间：仓库本身约 10.5 GB，合并后再 +10 GB（合并完可删分片）
 
-### 方式 A：一键脚本（Windows，推荐）
+### 方式 A：一键脚本（Linux / macOS）
 
-在任意空目录里：
+```bash
+# 1. 装 git-lfs（一次性，按发行版选）
+sudo apt install git-lfs        # Debian / Ubuntu
+sudo yum install git-lfs        # CentOS / RHEL
+brew install git-lfs            # macOS
+
+# 2. 下载一键脚本
+curl -fsSL https://raw.githubusercontent.com/dongwinterdong/MATERIAL/main/pull-and-merge.sh -o pull-and-merge.sh
+chmod +x pull-and-merge.sh
+
+# 3. 跑（会在当前目录下 clone 出 ./MATERIAL 并合并）
+./pull-and-merge.sh
+
+# 或者自定义目标路径：
+./pull-and-merge.sh -d /data/MATERIAL
+
+# 已经 clone 过了，只想拉 LFS + 合并：
+cd MATERIAL
+./pull-and-merge.sh -s
+```
+
+可选环境变量：
+
+```bash
+EXPECTED_SHA256=<维护者发布的哈希> ./pull-and-merge.sh   # 合并后自动 sha256sum 比对
+REPO_URL=https://github.com/your/fork.git ./pull-and-merge.sh
+```
+
+合并阶段如果安装了 `pv` 会显示带速度的全局进度条，否则按片打印累计进度。
+
+### 方式 B：一键脚本（Windows）
 
 ```powershell
 # 先把脚本本体拉下来
@@ -46,13 +77,6 @@ Invoke-WebRequest `
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Pull-And-Merge.ps1
 ```
 
-脚本会依次跑：
-
-1. `git lfs install` — 启用 LFS hooks
-2. `git clone --progress` — 克隆仓库（**带进度**，仅拉指针 <10 MB）
-3. `git lfs pull` — 下载 LFS 对象（**带进度**，约 10 GB）
-4. 调用 `merge-ravi.ps1` 把 6 个分片拼回原 `2023.03.27 70mm 1500 0.5 1.ravi`
-
 如果你已经 clone 过了，进到仓库目录里加 `-SkipClone`：
 
 ```powershell
@@ -60,7 +84,14 @@ cd MATERIAL
 ..\Pull-And-Merge.ps1 -SkipClone
 ```
 
-### 方式 B：手动分步
+两个一键脚本都会依次跑：
+
+1. `git lfs install` — 启用 LFS hooks
+2. `git clone --progress` — 克隆仓库（**带进度**，仅拉指针 <10 MB）
+3. `git lfs pull` — 下载 LFS 对象（**带进度**，约 10 GB）
+4. 调用对应平台的 `merge-ravi.{sh,ps1}` 把 6 个分片拼回原 `2023.03.27 70mm 1500 0.5 1.ravi`
+
+### 方式 C：手动分步
 
 ```bash
 git lfs install                                    # 每台机器一次性
@@ -72,6 +103,19 @@ git lfs pull                                       # 实际下载分片，自带
 
 合并 `.ravi` 分片，三选一：
 
+**Linux / macOS / Git Bash**
+
+```bash
+# 用仓库脚本（自带进度 + 大小校验）
+./merge-ravi.sh
+
+# 或者一行 cat（最简洁）
+cat "2023.03.27 70mm 1500 0.5 1.ravi.part"?? > "2023.03.27 70mm 1500 0.5 1.ravi"
+
+# 或者带进度条（需 sudo apt install pv）
+pv "2023.03.27 70mm 1500 0.5 1.ravi.part"?? > "2023.03.27 70mm 1500 0.5 1.ravi"
+```
+
 **Windows PowerShell**
 
 ```powershell
@@ -82,12 +126,6 @@ git lfs pull                                       # 实际下载分片，自带
 
 ```bat
 copy /b "2023.03.27 70mm 1500 0.5 1.ravi.part01" + "2023.03.27 70mm 1500 0.5 1.ravi.part02" + "2023.03.27 70mm 1500 0.5 1.ravi.part03" + "2023.03.27 70mm 1500 0.5 1.ravi.part04" + "2023.03.27 70mm 1500 0.5 1.ravi.part05" + "2023.03.27 70mm 1500 0.5 1.ravi.part06" "2023.03.27 70mm 1500 0.5 1.ravi"
-```
-
-**Linux / macOS / Git Bash**
-
-```bash
-cat "2023.03.27 70mm 1500 0.5 1.ravi.part"?? > "2023.03.27 70mm 1500 0.5 1.ravi"
 ```
 
 合完后你会得到 `2023.03.27 70mm 1500 0.5 1.ravi`（约 10.24 GB）。它已被 `.gitignore` 排除，**不会被误提交**。
