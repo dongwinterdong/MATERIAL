@@ -1,0 +1,7 @@
+# 原始大文件不入库；通过 LFS 提交的 .part?? 分片在克隆后用 merge-ravi.ps1 合并
+/2023.03.27 70mm 1500 0.5 1.ravi
+
+# 常见忽略
+.DS_Store
+Thumbs.db
+*.tmp
